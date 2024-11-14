@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'channels',
 
     
-    'authentication'
+    'authentication',
+    'projects',
 ]
 
 MIDDLEWARE = [
