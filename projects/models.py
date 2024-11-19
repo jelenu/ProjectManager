@@ -30,7 +30,6 @@ class Project(models.Model):
         related_name='sub_projects'
     )
 
-    # Many-to-many relationship for users assigned to the project
     users = models.ManyToManyField(CustomUser, through='ProjectUserRole', related_name='projects')
 
     def __str__(self):

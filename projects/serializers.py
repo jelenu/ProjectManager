@@ -1,55 +1,52 @@
+# Importing necessary modules from Django REST Framework and the models
 from rest_framework import serializers
-from authentication.models import CustomUser
-from .models import Project, ProjectUserRole, ProjectStatus, PriorityLabel
+from .models import Project, ProjectStatus, PriorityLabel, ProjectUserRole
 
-
-class ProjectUserRoleSerializer(serializers.ModelSerializer):
-    user = serializers.CharField()  # Identificar usuario por su `username`
-    role = serializers.ChoiceField(choices=ProjectUserRole.ROLE_CHOICES)
-
-    class Meta:
-        model = ProjectUserRole
-        fields = ['user', 'role']
-
-
+# Serializer for the Project model
 class ProjectSerializer(serializers.ModelSerializer):
-    users = ProjectUserRoleSerializer(many=True, required=False)  # Usuarios y roles asociados al proyecto
-    parent_project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False)  # Proyecto padre opcional
+    # Defining a relationship field for parent_project, which is optional (required=False)
+    parent_project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False) 
+    # Defining a relationship field for the project status
     status = serializers.PrimaryKeyRelatedField(queryset=ProjectStatus.objects.all())
+    # Defining a relationship field for the project's priority label
     priority = serializers.PrimaryKeyRelatedField(queryset=PriorityLabel.objects.all())
 
     class Meta:
+        # The model this serializer corresponds to is 'Project'
         model = Project
-        fields = ['name', 'description', 'deadline_date', 'status', 'priority', 'parent_project', 'users']
+        # Specifying which fields will be included in the serialized data
+        fields = ['name', 'description', 'deadline_date', 'status', 'priority', 'parent_project']
 
     def create(self, validated_data):
-        # Extraer datos de usuarios relacionados
-        users_data = validated_data.pop('users', [])
+        # Getting the current user from the request context, who will be the creator of the project
+        creator = self.context['request'].user
+        # Creating a new project instance with the validated data and the creator user
+        project = Project.objects.create(creator=creator, **validated_data)
+
+        # Automatically creating a 'ProjectUserRole' record to assign the creator as an 'admin' in the new project
+        ProjectUserRole.objects.create(
+            project=project,
+            user=creator,
+            role='admin'
+        )
         
-        # Crear el proyecto
-        project = Project.objects.create(creator=self.context['request'].user, **validated_data)
-
-        # Asociar usuarios y roles al proyecto
-        for user_data in users_data:
-            try:
-                user = CustomUser.objects.get(username=user_data['user'])
-                ProjectUserRole.objects.create(
-                    project=project,
-                    user=user,
-                    role=user_data['role']
-                )
-            except CustomUser.DoesNotExist:
-                raise serializers.ValidationError({"user": f"User {user_data['user']} not found."})
-
+        # Returning the newly created project instance
         return project
 
 
+# Serializer for the ProjectStatus model
 class ProjectStatusSerializer(serializers.ModelSerializer):
     class Meta:
+        # The model this serializer corresponds to is 'ProjectStatus'
         model = ProjectStatus
+        # Specifying the fields that will be included in the serialized data
         fields = ['id', 'name']
 
+
+# Serializer for the PriorityLabel model
 class PriorityLabelSerializer(serializers.ModelSerializer):
     class Meta:
+        # The model this serializer corresponds to is 'PriorityLabel'
         model = PriorityLabel
+        # Specifying the fields that will be included in the serialized data
         fields = ['id', 'name']
